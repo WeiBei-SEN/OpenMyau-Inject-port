@@ -1,0 +1,3 @@
+101 RCDATA "@CLIENT_JAR@"
+102 RCDATA "@PAYLOAD_DIR@/myau_native.dll"
+1 24 "@CMAKE_CURRENT_SOURCE_DIR@/loader/app.manifest"

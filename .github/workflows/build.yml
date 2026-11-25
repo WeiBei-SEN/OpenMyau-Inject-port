@@ -1,0 +1,70 @@
+name: Build OpenMyau-Inject
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Install CMake, Ninja, MinGW
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq cmake ninja-build mingw-w64 g++-mingw-w64-x86-64-posix unzip zip
+
+      - name: Restore ssl.jks (stored as base64 text in the repo)
+        run: |
+          base64 -d OpenMyau-Inject/src/main/resources/ssl.jks.b64 > OpenMyau-Inject/src/main/resources/ssl.jks
+          ls -l OpenMyau-Inject/src/main/resources/ssl.jks
+
+      - name: Download Gradle 8.8
+        run: |
+          curl -sL -o /tmp/gradle-8.8-bin.zip https://services.gradle.org/distributions/gradle-8.8-bin.zip
+          unzip -q /tmp/gradle-8.8-bin.zip -d /tmp
+          /tmp/gradle-8.8/bin/gradle --version
+
+      - name: Build client Jar with Gradle
+        working-directory: OpenMyau-Inject
+        run: /tmp/gradle-8.8/bin/gradle build --console=plain --stacktrace
+
+      - name: Cross-compile loader EXE with MinGW
+        run: |
+          cmake -S myau-natives -B myau-natives/build -G Ninja \
+            -DCMAKE_TOOLCHAIN_FILE=myau-natives/cmake/mingw-x64.cmake
+          cmake --build myau-natives/build
+
+      - name: Verify outputs
+        run: |
+          ls -lh OpenMyau-Inject/build/libs/
+          ls -lh myau-natives/build/Release/
+          file myau-natives/build/Release/myau_loader.exe
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: myau-build-${{ github.run_number }}
+          path: |
+            OpenMyau-Inject/build/libs/*.jar
+            myau-natives/build/Release/myau_loader.exe
+            myau-natives/build/Release/myau_native.dll
+          if-no-files-found: error
+
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: build-${{ github.run_number }}
+          name: Build ${{ github.run_number }}
+          files: |
+            OpenMyau-Inject/build/libs/*.jar
+            myau-natives/build/Release/myau_loader.exe
+            myau-natives/build/Release/myau_native.dll
