@@ -39,8 +39,17 @@ jobs:
 
       - name: Cross-compile loader EXE with MinGW
         run: |
+          echo "JAVA_HOME=$JAVA_HOME"
+          ls -l "$JAVA_HOME/include/jni.h" "$JAVA_HOME/include/jvmti.h" || true
+          ls -lh OpenMyau-Inject/build/libs/
+          which ninja cmake x86_64-w64-mingw32-g++-posix x86_64-w64-mingw32-windres || true
+          ninja --version || true
+          CLIENT_JAR=$(ls OpenMyau-Inject/build/libs/*.jar 2>/dev/null | grep -v 'without-deps' | head -n 1 || true)
+          if [ -z "$CLIENT_JAR" ]; then echo "ERROR: no client jar in build/libs"; ls -R OpenMyau-Inject/build/ | head -n 50; exit 1; fi
+          echo "CLIENT_JAR=$CLIENT_JAR"
           cmake -S myau-natives -B myau-natives/build -G Ninja \
-            -DCMAKE_TOOLCHAIN_FILE=myau-natives/cmake/mingw-x64.cmake
+            -DCMAKE_TOOLCHAIN_FILE="$PWD/myau-natives/cmake/mingw-x64.cmake" \
+            -DCLIENT_JAR="$PWD/$CLIENT_JAR"
           cmake --build myau-natives/build
 
       - name: Verify outputs
